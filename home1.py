@@ -10,7 +10,8 @@ import os
 import sys
 
 
-path = os.path.abspath(os.path.dirname(sys.argv[0]))
+path = os.path.abspath(os.path.dirname(sys.argv[0])) #set path in same folder
+path = "C:/Users/r05h41009/Documents/May/Home-Credit-Default-Risk/input"
 gc.enable()
 
 buro_bal = pd.read_csv(path + '/input/bureau_balance.csv')
@@ -164,7 +165,7 @@ import gc
 
 gc.enable()
 
-folds = KFold(n_splits=5, shuffle=True, random_state=546789)
+folds = KFold(n_splits=5, shuffle=True, random_state=527)
 oof_preds = np.zeros(data.shape[0])
 sub_preds = np.zeros(test.shape[0])
 
