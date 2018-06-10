@@ -187,8 +187,8 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 print(__doc__)
 
-X_train, y_train = data[feats].iloc[trn_idx], y.iloc[trn_idx]
-X_test, y_test = data[feats].iloc[val_idx], y.iloc[val_idx]
+X_train, X_test, y_train, y_test = train_test_split(
+    data, y, test_size=0.3, random_state=0)
 
 tuned_parameters = [{'n_estimators': [3000,4000,5000],
                      'learning_rate': [0.02,0.03,0.04],
