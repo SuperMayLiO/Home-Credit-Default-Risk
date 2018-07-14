@@ -24,7 +24,7 @@ def timer(title):
 # One-hot encoding for categorical columns with get_dummies
 def one_hot_encoder(df, nan_as_category = True):
     original_columns = list(df.columns)
-    categorical_columns = [col for col in df.columns if df[col].dtype == 'object']
+    categorical_columns = [col for col in df.columns if df[col].dtype == 'object' or len(df[col].unique().tolist()) < 20]
     df = pd.get_dummies(df, columns= categorical_columns, dummy_na= nan_as_category)
     new_columns = [c for c in df.columns if c not in original_columns]
     return df, new_columns
@@ -313,7 +313,7 @@ def kfold_lightgbm(df, num_folds, stratified = False, debug= False):
             min_split_gain=0.0222415,
             min_child_weight=40,
             silent=-1,
-            verbose=-1, )
+            verbose=-1)
 
         clf.fit(train_x, train_y, eval_set=[(train_x, train_y), (valid_x, valid_y)], 
             eval_metric= 'auc', verbose= 100, early_stopping_rounds= 200)
