@@ -4,6 +4,7 @@
 # In[ ]:
 
 
+import os
 import pandas as pd
 import numpy as np
 import warnings
@@ -13,11 +14,14 @@ import lightgbm as lgb
 from bayes_opt import BayesianOptimization
 from sklearn.metrics import roc_auc_score
 
+# set path
+default_path = "/Users/mayritaspring/Desktop/Github/Home-Credit-Default-Risk/"
+os.chdir(default_path)
 
 # In[ ]:
 
 
-application_train = pd.read_csv('../input/application_train.csv')
+application_train = pd.read_csv('../Kaggle data/application_train.csv')
 from sklearn.preprocessing import LabelEncoder
 def label_encoder(input_df, encoder_dict=None):
     """ Process a dataframe into a form useable by LightGBM """

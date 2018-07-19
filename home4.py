@@ -30,7 +30,7 @@ def one_hot_encoder(df, nan_as_category = True):
     return df, new_columns
 
 # set path
-default_path = "/Users/mayritaspring/Desktop/Github/Kaggle data/"
+default_path = "/Users/mayritaspring/Desktop/Github/"
 os.chdir(default_path)
 
 # Preprocess application_train.csv and application_test.csv
