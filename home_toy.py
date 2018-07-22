@@ -4,9 +4,13 @@
 Created on Fri Jul 20 16:11:09 2018
 
 @author: mayritaspring
+
+# set path
+default_path = "/Users/mayritaspring/Desktop/Github/Home-Credit-Default-Risk/"
+import os
+os.chdir(default_path)
 """
 
-import os
 import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
@@ -16,9 +20,6 @@ from bayes_opt import BayesianOptimization
 from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
 
-# set path
-default_path = "/Users/mayritaspring/Desktop/Github/Home-Credit-Default-Risk/"
-os.chdir(default_path)
 
 # read data
 application_train = pd.read_csv('../Kaggle data/application_train.csv')
@@ -39,8 +40,9 @@ def measure_performance(X,y,clf, show_accuracy=True, show_classification_report=
         print(metrics.confusion_matrix(y,y_pred)),"\n"  
         
     if show_roc_auc:
-        print("ROC AUC Score")
-        print(metrics.roc_auc_score(y, y_pred)),"\n"      
+        print("AUC ROC Score")
+        print(metrics.roc_auc_score(y,y_pred)),"\n"    
+
 
 #---------------------------------------------#
 # lightgbm with Bayesian Optimization
@@ -64,7 +66,7 @@ y = application_train.TARGET
 #Step 1: parameters to be tuned
 def lgb_eval(num_leaves, feature_fraction, bagging_fraction, max_depth, lambda_l1, lambda_l2, min_split_gain, min_child_weight):
     params = {'application':'binary','num_iterations':4000, 'learning_rate':0.05, 'early_stopping_round':100, 'metric':'auc'}
-    params["num_leaves"] = round(num_leaves)
+    params["num_leaves"] = int(round(num_leaves))
     params['feature_fraction'] = max(min(feature_fraction, 1), 0)
     params['bagging_fraction'] = max(min(bagging_fraction, 1), 0)
     params['max_depth'] = round(max_depth)
@@ -142,7 +144,7 @@ seed = 7
 test_size = 0.3
 X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=test_size, random_state=seed)
 
-# Model
+# LGBM with Bayesian Optimization
 LGBM_bayes = LGBMClassifier(
     nthread=4,
     n_estimators=10000,
@@ -174,7 +176,7 @@ plt.show()
 
 #---------------------------------------------#
 # lightgbm with grid search
-# Model
+# Grid Search
 print('Start training...')
 estimator = lgb.LGBMClassifier()
 
@@ -210,6 +212,7 @@ plt.show()
 
 
 # Submission file
-test_df = pd.read_csv('../Kaggle data/application_test.csv')
-out_df = pd.DataFrame({"SK_ID_CURR":test_df["SK_ID_CURR"], "TARGET":LGBM_grid_final.predict_proba(test_df.loc[:, test_df.columns != "SK_ID_CURR"])[1]})
-out_df.to_csv("submissions_toy.csv", index=False)
+application_test = pd.read_csv('../Kaggle data/application_test.csv')
+test_df = label_encoder(application_test)[0]
+out_df = pd.DataFrame({"SK_ID_CURR":test_df["SK_ID_CURR"], "TARGET":LGBM_bayes.predict_proba(test_df)[:,1]})
+out_df.to_csv("submissions_toy_bayes.csv", index=False)
