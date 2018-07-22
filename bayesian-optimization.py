@@ -3,7 +3,6 @@
 
 # In[ ]:
 
-
 import os
 import pandas as pd
 import numpy as np
@@ -13,6 +12,7 @@ warnings.filterwarnings("ignore")
 import lightgbm as lgb
 from bayes_opt import BayesianOptimization
 from sklearn.metrics import roc_auc_score
+
 
 # set path
 default_path = "/Users/mayritaspring/Desktop/Github/Home-Credit-Default-Risk/"
@@ -134,7 +134,4 @@ opt_params = bayes_parameter_opt_lgb(X, y, init_round=5, opt_round=10, n_folds=3
 
 
 # In[ ]:
-
-
 print(opt_params)
-
