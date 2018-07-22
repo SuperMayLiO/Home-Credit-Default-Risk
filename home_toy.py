@@ -8,18 +8,12 @@ Created on Fri Jul 20 16:11:09 2018
 
 import os
 import pandas as pd
-import numpy as np
 import warnings
-import time
-import gc
 warnings.filterwarnings("ignore")
 import lightgbm as lgb
 from lightgbm import LGBMClassifier
 from bayes_opt import BayesianOptimization
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import KFold, StratifiedKFold
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 
 # set path
@@ -29,41 +23,9 @@ os.chdir(default_path)
 # read data
 application_train = pd.read_csv('../Kaggle data/application_train.csv')
 
-# One-hot encoding for categorical columns with get_dummies
-def one_hot_encoder(df, label, nan_as_category = True):
-    original_columns = list(df.columns)
-    categorical_columns = [col for col in df.columns if col != label and (df[col].dtype == 'object' or len(df[col].unique().tolist()) < 20)]
-    df = pd.get_dummies(df, columns= categorical_columns, dummy_na= nan_as_category)
-    #replace NAs with mean
-    df = df.fillna(df.mean())
-    new_columns = [c for c in df.columns if c not in original_columns]
-    return df, new_columns, categorical_columns
-
-# Split to feature and label 
-def split_train_test(df, label,key = None, seed = 7, test_size = 0.3):
-    from sklearn import cross_validation
-    
-    #setting
-    seed = seed
-    test_size = test_size
-    
-    #give label y
-    y = df[label]
-    
-    #give feature X
-    try:
-        cols = [col for col in df.columns if col not in [label, key]]
-        X = one_hot_encoder(df = df[cols], label = label)[0]
-        categorical_columns = one_hot_encoder(df = df[cols], label = label)[2]
-    except:
-        X = one_hot_encoder(df = df.loc[:, df.columns != label], label = label)[0]
-        categorical_columns = one_hot_encoder(df = df.loc[:, df.columns != label], label = label)[2]
-    X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=test_size, random_state=seed)
-    return X_train, X_test, y_train, y_test, categorical_columns
-
-# Measure Performance
+# Function for Measure Performance
 from  sklearn  import  metrics
-def measure_performance(X,y,clf, show_accuracy=True, show_classification_report=True, show_confusion_matrix=True):
+def measure_performance(X,y,clf, show_accuracy=True, show_classification_report=True, show_confusion_matrix=True, show_roc_auc = True):
     y_pred = clf.predict(X)  
     if show_accuracy:
         print ("Accuracy:{0:.3f}".format(metrics.accuracy_score(y,y_pred))),"\n"
@@ -75,7 +37,10 @@ def measure_performance(X,y,clf, show_accuracy=True, show_classification_report=
     if show_confusion_matrix:
         print("Confusion matrix")
         print(metrics.confusion_matrix(y,y_pred)),"\n"  
-
+        
+    if show_roc_auc:
+        print("ROC AUC Score")
+        print(metrics.roc_auc_score(y, y_pred)),"\n"      
 
 #---------------------------------------------#
 # lightgbm with Bayesian Optimization
@@ -166,22 +131,18 @@ def bayes_parameter_opt_lgb(X, y, init_round=15, opt_round=25, n_folds=5, random
     return lgbBO.res['max']['max_params']
 
 opt_params = bayes_parameter_opt_lgb(X, y, init_round=5, opt_round=10, n_folds=3, random_seed=6, n_estimators=100, learning_rate=0.05)
-
 print('Bayesian Optimization Parameters...')
 print(opt_params)
 
 ####################################################################################
-# LightGBM parameters found by Bayesian optimization
-# Prepare dataset for Bayesian Optimization 
+# lightgbm with Bayesian optimization
+# Prepare dataset 
 from sklearn import cross_validation
 seed = 7
 test_size = 0.3
-
 X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=test_size, random_state=seed)
 
-train_data = lgb.Dataset(data = X, label = y, categorical_feature = categorical_feats, free_raw_data=False)
-
-
+# Model
 LGBM_bayes = LGBMClassifier(
     nthread=4,
     n_estimators=10000,
@@ -200,8 +161,8 @@ LGBM_bayes = LGBMClassifier(
 LGBM_bayes_fit = LGBM_bayes.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)], 
     eval_metric= 'auc', verbose= 100, early_stopping_rounds= 200)
 
-
-measure_performance(X = X_test, y = y_test, clf = LGBM_bayes, show_classification_report=True, show_confusion_matrix=True)
+# measure performance
+LGBM_bayes_measure = measure_performance(X = X_test, y = y_test, clf = LGBM_bayes, show_classification_report=True, show_confusion_matrix=True, show_roc_auc = True)
 
 # feature importances
 print('Feature importances:', list(LGBM_bayes.feature_importances_))
@@ -211,29 +172,8 @@ print('Plot feature importances...')
 ax = lgb.plot_importance(LGBM_bayes_fit, max_num_features=10)
 plt.show()
 
-
-#####
-import seaborn as sns
-# Display/plot feature importance
-def display_importances(feature_importance_df_):
-    cols = feature_importance_df_[["feature", "importance"]].groupby("feature").mean().sort_values(by="importance", ascending=False)[:40].index
-    best_features = feature_importance_df_.loc[feature_importance_df_.feature.isin(cols)]
-    plt.figure(figsize=(8, 10))
-    sns.barplot(x="importance", y="feature", data=best_features.sort_values(by="importance", ascending=False))
-    plt.title('LightGBM Features (avg over folds)')
-    plt.tight_layout()
-    plt.savefig('lgbm_importances01.png')
-
-display_importances(feature_importance_df_ = LGBM_bayes.feature_importances_)
-
 #---------------------------------------------#
 # lightgbm with grid search
-
-# Prepare dataset for Bayesian Optimization    
-# use function split_train_test can help to 1.set label and dataset 2.One-hot encoding
-output = split_train_test(df = application_train, label = 'TARGET', key = 'SK_ID_CURR', test_size = 0.3)
-X_train, X_test, y_train, y_test, categorical_columns = output[0:5]
-
 # Model
 print('Start training...')
 estimator = lgb.LGBMClassifier()
@@ -245,31 +185,31 @@ param_grid = {
     'n_estimators': [20, 40]
 }
 
-gbm = GridSearchCV(estimator, param_grid)
-gbm.fit(X_train, y_train)
-print('Best parameters found by grid search are:', gbm.best_params_)
+LGBM_grid = GridSearchCV(estimator, param_grid)
+LGBM_grid.fit(X_train, y_train)
+print('Best parameters found by grid search are:', LGBM_grid.best_params_)
 
 # Final Model
 evals_result = {} 
 print('Start predicting...')
-gbm_final = lgb.LGBMClassifier(objective = gbm.best_params_['objective'],
-                              num_leaves = gbm.best_params_['num_leaves'],
-                                learning_rate = gbm.best_params_['learning_rate'], 
-                              n_estimators = gbm.best_params_['n_estimators'])
-gbm_final_fit = gbm_final.fit(X_train, y_train)
-measure_performance(X = X_test, y = y_test, clf = gbm_final, show_classification_report=True, show_confusion_matrix=True)
+LGBM_grid_final = lgb.LGBMClassifier(objective = LGBM_grid.best_params_['objective'],
+                              num_leaves = LGBM_grid.best_params_['num_leaves'],
+                                learning_rate = LGBM_grid.best_params_['learning_rate'], 
+                              n_estimators = LGBM_grid.best_params_['n_estimators'])
+LGBM_grid_final_fit = LGBM_grid_final.fit(X_train, y_train)
+LGBM_grid_measure = measure_performance(X = X_test, y = y_test, clf = LGBM_grid_final, show_classification_report=True, show_confusion_matrix=True)
 
 
 # feature importances
-print('Feature importances:', list(gbm_final.feature_importances_))
+print('Feature importances:', list(LGBM_grid_final.feature_importances_))
 
 # visualization
 print('Plot feature importances...')
-ax = lgb.plot_importance(gbm_final_fit, max_num_features=10)
+ax = lgb.plot_importance(LGBM_grid_final_fit, max_num_features=10)
 plt.show()
 
 
 # Submission file
 test_df = pd.read_csv('../Kaggle data/application_test.csv')
-out_df = pd.DataFrame({"SK_ID_CURR":test_df["SK_ID_CURR"], "TARGET":gbm_final.predict_proba(test_df.loc[:, test_df.columns != "SK_ID_CURR"])[1]})
+out_df = pd.DataFrame({"SK_ID_CURR":test_df["SK_ID_CURR"], "TARGET":LGBM_grid_final.predict_proba(test_df.loc[:, test_df.columns != "SK_ID_CURR"])[1]})
 out_df.to_csv("submissions_toy.csv", index=False)
